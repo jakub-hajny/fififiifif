@@ -1,0 +1,78 @@
+//    |\__/,|   (`\
+//  -.|0 0  |_   ) )
+// -((---(((--------
+const video = document.querySelector('.hero video');
+const hero = document.querySelector('.hero');
+
+// Scroll effect for video
+let ticking = false;
+
+function updateVideoClip() {
+	if (!ticking) {
+		requestAnimationFrame(() => {
+			const scrollFraction = window.scrollY / (hero.offsetHeight * 1.5);
+			const inset = Math.min(50, scrollFraction * 50);
+			video.style.clipPath = `inset(${inset}% ${inset}%)`;
+			ticking = false;
+		});
+		ticking = true;
+	}
+}
+
+window.addEventListener('scroll', updateVideoClip);
+
+// Initialize Lenis
+const lenis = new Lenis({autoRaf: true});
+
+// Handle tab visibility to prevent issues when returning from background
+document.addEventListener('visibilitychange', () => {
+	if (!document.hidden) {
+		requestAnimationFrame(() => {
+			lenis.resize();
+			updateVideoClip();
+		});
+	}
+});
+
+// IntersectionObserver for animations
+if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+	const observer = new IntersectionObserver((entries, observer) => {
+		entries.forEach(entry => {
+			if (entry.isIntersecting) {
+				if (entry.target.matches('#slogan span')) {
+					entry.target.classList.add('slogan-anim');
+					observer.unobserve(entry.target);
+				}
+				if (entry.target.id === 'vids') {
+					const vidsChildren = entry.target.children;
+					for (const child of vidsChildren) {
+						child.classList.add('vids-anim');
+					}
+					observer.unobserve(entry.target);
+				}
+				if (entry.target.id === 'clients') {
+					const clientsChildren = entry.target.children;
+					for (const child of clientsChildren) {
+						child.classList.add('vids-anim');
+					}
+					observer.unobserve(entry.target);
+				}
+				if (entry.target.id === 'team-content') {
+					const teamContentChildren = entry.target.children;
+					for (const child of teamContentChildren) {
+						child.classList.add('scale-up');
+					}
+					observer.unobserve(entry.target);
+				}
+			}
+		});
+	});
+	document.querySelectorAll('#slogan span').forEach(span => {
+		observer.observe(span);
+	});
+	observer.observe(document.querySelector('#vids'));
+	observer.observe(document.querySelector('#clients'));
+	observer.observe(document.querySelector('#team-content'));
+}
+
+// Tohle se edituje, kdyz Vercel ma schizu

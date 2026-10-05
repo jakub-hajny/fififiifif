@@ -4,6 +4,7 @@
 
 const video = document.querySelector('.hero video');
 const hero = document.querySelector('.hero');
+const timecode = document.querySelector('#timecode');
 
 // Cache hero height instead of reading offsetHeight (forces layout) every frame.
 // ResizeObserver keeps it correct across window resizes and mobile viewport changes.
@@ -18,6 +19,20 @@ function updateVideoClip() {
 	video.style.clipPath = `inset(${inset}% ${inset}%)`;
 }
 
+// Viewfinder timecode (HH:MM:SS:FF) following the hero video's playhead.
+// Keep FPS in sync with the frame rate shown in the HUD spec label.
+const FPS = 60;
+let lastFrame = -1;
+const pad = n => String(n).padStart(2, '0');
+
+function updateTimecode() {
+	const frame = Math.floor(video.currentTime * FPS);
+	if (frame === lastFrame) return;
+	lastFrame = frame;
+	const s = Math.floor(frame / FPS);
+	timecode.textContent = `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}:${pad(frame % FPS)}`;
+}
+
 // Initialize Lenis. autoRaf is left off (default) because we drive a single
 // shared rAF loop below instead of running Lenis's loop and our own side by side.
 const lenis = new Lenis();
@@ -25,6 +40,7 @@ const lenis = new Lenis();
 function raf(time) {
 	lenis.raf(time);
 	updateVideoClip();
+	updateTimecode();
 	requestAnimationFrame(raf);
 }
 requestAnimationFrame(raf);
@@ -38,40 +54,20 @@ document.addEventListener('visibilitychange', () => {
 	}
 });
 
-// IntersectionObserver for animations
+// IntersectionObserver for animations:
+// containers marked data-reveal="<class>" add that class to each child once scrolled into view
 if (window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
 	const observer = new IntersectionObserver((entries, observer) => {
 		entries.forEach(entry => {
 			if (entry.isIntersecting) {
-				if (entry.target.matches('#slogan span')) {
-					entry.target.classList.add('slogan-anim');
-					observer.unobserve(entry.target);
+				for (const child of entry.target.children) {
+					child.classList.add(entry.target.dataset.reveal);
 				}
-				if (entry.target.id === 'vids') {
-					for (const child of entry.target.children) {
-						child.classList.add('vids-anim');
-					}
-					observer.unobserve(entry.target);
-				}
-				if (entry.target.id === 'clients') {
-					for (const child of entry.target.children) {
-						child.classList.add('vids-anim');
-					}
-					observer.unobserve(entry.target);
-				}
-				if (entry.target.id === 'team-content') {
-					for (const child of entry.target.children) {
-						child.classList.add('scale-up');
-					}
-					observer.unobserve(entry.target);
-				}
+				observer.unobserve(entry.target);
 			}
 		});
 	});
-	document.querySelectorAll('#slogan span').forEach(span => observer.observe(span));
-	observer.observe(document.querySelector('#vids'));
-	observer.observe(document.querySelector('#clients'));
-	observer.observe(document.querySelector('#team-content'));
+	document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
 }
 
 // Tohle se edituje, kdyz Vercel ma schizu

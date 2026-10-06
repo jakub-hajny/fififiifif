@@ -1,4 +1,5 @@
 // Scroll-driven wireframe models for the gear section: DJI Air 3S and Canon EOS R6 Mark III.
+// When a stage has a textured model (gear-models.js), this file still drives its pose and HUD.
 // A tiny hand-rolled 3D line renderer (no library). Each .gear-scroll pins a canvas while you
 // scroll through it; scroll progress drives that model's animation.
 (() => {
@@ -178,26 +179,32 @@
 		return lines;
 	}
 
+	// A scene turns scroll progress into a pose (`state`, shared with gear-models.js for the
+	// textured model), a camera `view`, and the HUD step/readout; `lines` draws the wireframe.
 	function droneScene() {
 		let propAngle = 0;
-		return (p, time, dt) => {
-			const spin = phase(p, 0.35, 0.5);
-			const liftT = phase(p, 0.5, 0.7);
-			propAngle += dt * spin * 40;
-			const t = ease(p);
-			return {
-				lines: buildDrone({
-					unfold: phase(p, 0.05, 0.35),
-					bladeOpen: phase(p, 0.33, 0.4),
-					spin,
-					lift: liftT * 0.6 + Math.sin(time / 600) * 0.03 * liftT,
-					tilt: -0.5 * phase(p, 0.7, 0.9),
-					propAngle,
-				}),
-				view: { yaw: lerp(-2.6, -0.45, t), pitch: lerp(0.75, 0.15, t), dist: 7, lookY: lerp(-0.2, 0.1, t) },
-				active: p < 0.35 ? 0 : p < 0.5 ? 1 : p < 0.7 ? 2 : 3,
-				readout: `ALT ${(liftT * 120).toFixed(1).padStart(5, '0')} m · RPM ${String(Math.round(spin * 9800)).padStart(4, '0')}`,
-			};
+		return {
+			lines: buildDrone,
+			pose(p, time, dt) {
+				const spin = phase(p, 0.35, 0.5);
+				const liftT = phase(p, 0.5, 0.7);
+				propAngle += dt * spin * 40;
+				const t = ease(p);
+				return {
+					state: {
+						scan: phase(p, 0.02, 0.3),
+						unfold: phase(p, 0.05, 0.35),
+						bladeOpen: phase(p, 0.33, 0.4),
+						spin,
+						lift: liftT * 0.6 + Math.sin(time / 600) * 0.03 * liftT,
+						tilt: -0.5 * phase(p, 0.7, 0.9),
+						propAngle,
+					},
+					view: { yaw: lerp(-2.6, -0.45, t), pitch: lerp(0.75, 0.15, t), dist: 7, lookY: lerp(-0.2, 0.1, t) },
+					active: p < 0.35 ? 0 : p < 0.5 ? 1 : p < 0.7 ? 2 : 3,
+					readout: `ALT ${(liftT * 120).toFixed(1).padStart(5, '0')} m · RPM ${String(Math.round(spin * 9800)).padStart(4, '0')}`,
+				};
+			},
 		};
 	}
 
@@ -294,20 +301,24 @@
 	}
 
 	function cameraScene() {
-		return p => {
-			const t = ease(p);
-			const live = phase(p, 0.75, 0.85);
-			const seconds = Math.floor(clamp01((p - 0.75) / 0.25) * 30);
-			return {
-				lines: buildCamera({
-					swing: Math.PI * phase(p, 0.25, 0.5),
-					twist: 0.45 * phase(p, 0.5, 0.75),
-					live,
-				}),
-				view: { yaw: lerp(Math.PI + 0.5, Math.PI * 2 - 0.6, t), pitch: lerp(0.4, 0.15, t), dist: 9.5, lookY: lerp(0.1, -0.1, t) },
-				active: p < 0.25 ? 0 : p < 0.5 ? 1 : p < 0.75 ? 2 : 3,
-				readout: live > 0 ? `● REC 00:00:${String(seconds).padStart(2, '0')}` : '1/50 · F4 · ISO 100',
-			};
+		return {
+			lines: buildCamera,
+			pose(p) {
+				const t = ease(p);
+				const live = phase(p, 0.75, 0.85);
+				const seconds = Math.floor(clamp01((p - 0.75) / 0.25) * 30);
+				return {
+					state: {
+						scan: phase(p, 0, 0.25),
+						swing: Math.PI * phase(p, 0.25, 0.5),
+						twist: 0.45 * phase(p, 0.5, 0.75),
+						live,
+					},
+					view: { yaw: lerp(Math.PI + 0.5, Math.PI * 2 - 0.6, t), pitch: lerp(0.4, 0.15, t), dist: 9.5, lookY: lerp(0.1, -0.1, t) },
+					active: p < 0.25 ? 0 : p < 0.5 ? 1 : p < 0.75 ? 2 : 3,
+					readout: live > 0 ? `● REC 00:00:${String(seconds).padStart(2, '0')}` : '1/50 · F4 · ISO 100',
+				};
+			},
 		};
 	}
 
@@ -316,7 +327,7 @@
 
 	function createStage(root, scene) {
 		if (!root) return;
-		const canvas = root.querySelector('canvas');
+		const canvas = root.querySelector('.gear-wire');
 		const ctx = canvas.getContext('2d');
 		const steps = root.querySelectorAll('.gear-steps li');
 		const readout = root.querySelector('.gear-readout');
@@ -331,13 +342,16 @@
 			canvas.height = Math.round(height * dpr);
 		}
 
+		// Focal length in CSS pixels; gear-models.js uses the same value to match the wireframe framing
+		const focal = () => Math.min(width, height) * (width < 600 ? 1.2 : 1.6);
+
 		function render(lines, view) {
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			ctx.clearRect(0, 0, width, height);
 			ctx.strokeStyle = color;
 			ctx.lineWidth = 1.25;
 			ctx.lineCap = 'round';
-			const f = Math.min(width, height) * (width < 600 ? 1.2 : 1.6);
+			const f = focal();
 			const cx = width / 2, cy = height / 2;
 			const project = p => {
 				const q = rotX(rotY(p, view.yaw), view.pitch);
@@ -366,8 +380,12 @@
 		function frame(time, p) {
 			const dt = Math.min(0.05, (time - lastTime) / 1000);
 			lastTime = time;
-			const out = scene(p, time, dt);
-			render(out.lines, out.view);
+			const out = scene.pose(p, time, dt);
+			// Hand the pose to gear-models.js; once the textured model is up (.has-model) it draws instead
+			const detail = { ...out, p, time, focal: focal() };
+			root.gearLast = detail;
+			root.dispatchEvent(new CustomEvent('gearframe', { detail }));
+			if (!root.classList.contains('has-model')) render(scene.lines(out.state), out.view);
 			steps.forEach((li, i) => li.classList.toggle('active', i === out.active));
 			readout.textContent = out.readout;
 		}

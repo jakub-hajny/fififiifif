@@ -216,6 +216,7 @@ section{width: 100%;}
 }
 .card:hover{border-color: var(--accent);}
 .card h3{
+	text-wrap: balance;
 	font-family: var(--font-display);
 	font-size: clamp(1.75rem, 2.5vw, 2.25rem);
 	line-height: 1.1;
@@ -223,12 +224,12 @@ section{width: 100%;}
 }
 .card p:not(.card-label){color: var(--muted);}
 
-/* GEAR: scroll-driven wireframe drone (drone.js) */
-.drone-scroll{
-	height: 300vh;
+/* GEAR: scroll-driven wireframe models (gear3d.js) */
+.gear-scroll{
+	height: 250vh;
 	margin-bottom: clamp(2rem, 5vw, 3.5rem);
 }
-.drone-stage{
+.gear-stage{
 	position: sticky;
 	top: 0;
 	height: 100vh;
@@ -238,11 +239,11 @@ section{width: 100%;}
 	align-items: center;
 	gap: 2rem;
 }
-#drone{
+.gear-stage canvas{
 	width: 100%;
 	height: 80svh;
 }
-.drone-hud{
+.gear-hud{
 	display: flex;
 	flex-direction: column;
 	gap: 2rem;
@@ -251,23 +252,23 @@ section{width: 100%;}
 	letter-spacing: 0.15em;
 	text-transform: uppercase;
 }
-.drone-steps{
+.gear-steps{
 	list-style: none;
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
 }
-.drone-steps li{
+.gear-steps li{
 	color: var(--muted);
 	padding-left: 1rem;
 	border-left: 1px solid var(--line);
 	transition: color 0.3s ease, border-color 0.3s ease;
 }
-.drone-steps li.active{
+.gear-steps li.active{
 	color: var(--accent);
 	border-color: var(--accent);
 }
-.drone-readout{
+.gear-readout{
 	color: var(--text);
 	font-variant-numeric: tabular-nums;
 }
@@ -428,9 +429,9 @@ footer{
 @media(prefers-reduced-motion: reduce){
 	*{animation: none !important; transition: none !important; opacity: 1 !important;}
 	/* Drone is drawn once, fully unfolded, without pinning */
-	.drone-scroll{height: auto;}
-	.drone-stage{position: static; height: auto;}
-	#drone{height: 60svh;}
+	.gear-scroll{height: auto;}
+	.gear-stage{position: static; height: auto;}
+	.gear-stage canvas{height: 60svh;}
 }
 
 .slide-up{animation: slide-up 0.5s cubic-bezier(0, 1, 1, 1) forwards; opacity: 0;}
@@ -464,14 +465,14 @@ footer{
 		padding-bottom: 1rem;
 	}
 	#vids iframe{scroll-snap-align: start;}
-	.drone-stage{
+	.gear-stage{
 		grid-template-columns: 1fr;
 		align-content: center;
 		gap: 1rem;
 	}
-	#drone{height: 65svh;}
-	.drone-hud{gap: 1rem; font-size: 0.7rem;}
-	.drone-steps{flex-direction: row; flex-wrap: wrap; gap: 0.5rem 1rem;}
+	.gear-stage canvas{height: 65svh;}
+	.gear-hud{gap: 1rem; font-size: 0.7rem;}
+	.gear-steps{flex-direction: row; flex-wrap: wrap; gap: 0.5rem 1rem;}
 }
 
 /* MOBILE */

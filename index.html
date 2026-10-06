@@ -11,7 +11,7 @@
 	<script>/* FOUC fix */</script>
 	<script defer src="https://unpkg.com/lenis@1.3.25/dist/lenis.min.js"></script>
 	<script defer src="script.js"></script>
-	<script defer src="drone.js"></script>
+	<script defer src="gear3d.js"></script>
 	<title>FineFlight</title>
 
 	<!-- SEO -->
@@ -177,18 +177,33 @@
 			<p class="kicker">04 — Technika</p>
 			<h2 class="heading">Čím natáčíme</h2>
 		</header>
-		<div class="drone-scroll">
-			<div class="drone-stage">
-				<canvas id="drone" aria-label="Drátový model dronu DJI Air 3S, který se při scrollování rozloží a vzlétne" role="img"></canvas>
-				<div class="drone-hud">
+		<div class="gear-scroll" id="gear-drone">
+			<div class="gear-stage">
+				<canvas aria-label="Drátový model dronu DJI Air 3S, který se při scrollování rozloží a vzlétne" role="img"></canvas>
+				<div class="gear-hud">
 					<p class="kicker">DJI Air 3S</p>
-					<ol class="drone-steps">
+					<ol class="gear-steps">
 						<li>01 Rozložení ramen</li>
 						<li>02 Start motorů</li>
 						<li>03 Vzlet</li>
 						<li>04 Kamera</li>
 					</ol>
-					<p class="drone-readout" id="drone-readout">ALT 000.0 m · RPM 0000</p>
+					<p class="gear-readout">ALT 000.0 m · RPM 0000</p>
+				</div>
+			</div>
+		</div>
+		<div class="gear-scroll" id="gear-camera">
+			<div class="gear-stage">
+				<canvas aria-label="Drátový model fotoaparátu Canon EOS R6 Mark III, kterému se při scrollování vyklopí displej" role="img"></canvas>
+				<div class="gear-hud">
+					<p class="kicker">Canon EOS R6 Mark III</p>
+					<ol class="gear-steps">
+						<li>01 Tělo</li>
+						<li>02 Vyklopení displeje</li>
+						<li>03 Natočení</li>
+						<li>04 Záznam</li>
+					</ol>
+					<p class="gear-readout">1/50 · F4 · ISO 100</p>
 				</div>
 			</div>
 		</div>
@@ -202,10 +217,9 @@
 				<p class="card-label">FPV dron</p>
 				<h3>[doplnit model]</h3>
 			</article>
-			<!-- TODO: doplnit model -->
 			<article class="card">
 				<p class="card-label">Kamera</p>
-				<h3>[doplnit model]</h3>
+				<h3>Canon EOS R6 Mark III</h3>
 			</article>
 		</div>
 	</section>

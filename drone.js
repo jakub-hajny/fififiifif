@@ -70,37 +70,40 @@
 	}
 	const circle = (r, n, at) => loop(ring(r, r, n, at, 2));
 
-	// ---- DJI Air 3S
-	// Fuselage cross-sections: [z, half-width, half-height, centre y] (1 unit ≈ 10 cm)
+	// ---- DJI Air 3S (1 unit ≈ 10 cm; folded 207 × 100 × 91 mm, unfolded 267 × 326 mm, 8.8" props)
+	// Fuselage cross-sections: [z, half-width, half-height, centre y]. Low rear deck rising
+	// into the tall rounded "head" at the nose.
 	const STATIONS = [
-		[-1.0, 0.28, 0.16, 0.06],
-		[-0.8, 0.40, 0.23, 0.05],
-		[-0.35, 0.47, 0.27, 0.04],
-		[0.2, 0.46, 0.27, 0.03],
-		[0.6, 0.40, 0.24, 0.0],
-		[0.85, 0.30, 0.19, -0.03],
-		[0.97, 0.18, 0.12, -0.05],
+		[-1.0, 0.28, 0.15, 0.02],
+		[-0.85, 0.38, 0.2, 0.03],
+		[-0.4, 0.44, 0.22, 0.05],
+		[0.05, 0.47, 0.26, 0.09],
+		[0.4, 0.45, 0.3, 0.1],
+		[0.64, 0.38, 0.27, 0.1],
+		[0.77, 0.27, 0.2, 0.1],
 	];
 	const BODY = [
 		...loft(STATIONS.map(([z, w, h, y]) => ring(w, h, 24, (u, v) => [u, y + v, z])), 2),
-		// battery seam on top and the top fisheye sensors
-		...loop(ring(0.26, 0.5, 16, (u, v) => [u, 0.31, -0.45 + v], 4)),
-		...circle(0.05, 10, (u, v) => [0.16 + u, 0.3, 0.42 + v]),
-		...circle(0.05, 10, (u, v) => [-0.16 + u, 0.3, 0.42 + v]),
-		// forward stereo vision sensors and LiDAR window on the nose
-		...circle(0.045, 10, (u, v) => [0.1 + u, 0.03 + v, 0.975]),
-		...circle(0.045, 10, (u, v) => [-0.1 + u, 0.03 + v, 0.975]),
-		...loop(ring(0.06, 0.025, 10, (u, v) => [u, -0.07 + v, 0.97], 4)),
+		// battery seam on the rear deck and the fisheye sensor on top of the head
+		...loop(ring(0.24, 0.42, 16, (u, v) => [u, 0.27, -0.5 + v], 4)),
+		...circle(0.06, 12, (u, v) => [u, 0.4, 0.42 + v]),
+		// nose: stereo vision sensors in the top corners with the dark window between them
+		...circle(0.05, 12, (u, v) => [0.17 + u, 0.2 + v, 0.765]),
+		...circle(0.05, 12, (u, v) => [-0.17 + u, 0.2 + v, 0.765]),
+		...loop(ring(0.09, 0.035, 12, (u, v) => [u, 0.22 + v, 0.775], 4)),
 	];
 
-	// Dual-camera gimbal: wide 1" main camera + medium tele, side by side
-	const GIMBAL_POS = [0, -0.32, 0.8];
+	// Gimbal: tall camera block under the nose, medium tele on top, 1" wide camera below
+	const GIMBAL_POS = [0, -0.28, 0.72];
 	const GIMBAL = [
-		...loft([-0.13, 0.13].map(z => ring(0.27, 0.13, 20, (u, v) => [u, v, z], 3)), 5),
-		...circle(0.085, 16, (u, v) => [-0.1 + u, v, 0.135]),
-		...circle(0.05, 12, (u, v) => [-0.1 + u, v, 0.15]),
-		...circle(0.06, 14, (u, v) => [0.12 + u, v, 0.135]),
-		...circle(0.03, 10, (u, v) => [0.12 + u, v, 0.15]),
+		...loft([-0.17, 0.17].map(z => ring(0.22, 0.27, 20, (u, v) => [u, v, z], 3.5)), 5),
+		...loop(ring(0.1, 0.085, 14, (u, v) => [u, 0.13 + v, 0.175], 4)),
+		...circle(0.06, 14, (u, v) => [u, 0.13 + v, 0.18]),
+		...circle(0.12, 18, (u, v) => [u, -0.11 + v, 0.175]),
+		...circle(0.075, 14, (u, v) => [u, -0.11 + v, 0.185]),
+		// roll motors on the gimbal yoke
+		...circle(0.08, 12, (u, v) => [0.235, v, u]),
+		...circle(0.08, 12, (u, v) => [-0.235, v, u]),
 	];
 
 	// Tapered arm along +x, from (w0, h0) at the hinge to (w1, h1) at the motor
@@ -109,39 +112,45 @@
 		const b = ring(w1, h1, 8, (u, v) => [len, v, u], 4);
 		return [...loop(a), ...loop(b), ...a.map((p, i) => [p, b[i]])];
 	}
-	const motor = len => shift(cylinder(0.15, 0.14, 14), [len, 0.09, 0]);
-	const FRONT_LEN = 1.05, REAR_LEN = 1.2;
-	const FRONT_ARM = [
-		...beam(FRONT_LEN, 0.07, 0.05, 0.045, 0.035), ...motor(FRONT_LEN),
-		...shift(box(0.05, 0.22, 0.05), [FRONT_LEN - 0.05, -0.12, 0]), // landing leg
+	// Motor pod at the arm tip: housing around the arm, motor bell on top
+	const pod = len => [
+		...shift(cylinder(0.12, 0.24, 14), [len, 0, 0]),
+		...shift(cylinder(0.11, 0.06, 14), [len, 0.15, 0]),
 	];
-	const REAR_ARM = [...beam(REAR_LEN, 0.08, 0.055, 0.045, 0.035), ...motor(REAR_LEN)];
+	// Leg hanging from the pod, angled down and outward
+	const leg = (len, length) => beam(length, 0.055, 0.05, 0.035, 0.03)
+		.map(seg => seg.map(p => add(rotZ(p, -Math.PI / 2 + 0.22), [len, -0.1, 0])));
+	const HUB_Y = 0.22;
+	const FRONT_LEN = 1.08, REAR_LEN = 1.2;
+	const FRONT_ARM = [...beam(FRONT_LEN, 0.09, 0.06, 0.06, 0.045), ...pod(FRONT_LEN), ...leg(FRONT_LEN, 0.42)];
+	const REAR_ARM = [...beam(REAR_LEN, 0.09, 0.06, 0.06, 0.045), ...pod(REAR_LEN), ...leg(REAR_LEN, 0.1)];
 
-	// One curved propeller blade pointing along +x from the hub
-	const PROP_R = 0.85;
+	// One slender, slightly swept propeller blade pointing along +x from the hub
+	const PROP_R = 1.1;
 	const lead = [], trail = [];
-	for (let i = 0; i <= 8; i++) {
-		const t = i / 8, r = 0.06 + (PROP_R - 0.06) * t;
-		const chord = 0.13 * Math.sin(Math.PI * (0.15 + 0.85 * t)) + 0.02;
-		lead.push([r, 0, chord * 0.6]);
-		trail.push([r, 0, -chord * 0.4]);
+	for (let i = 0; i <= 10; i++) {
+		const t = i / 10, r = 0.07 + (PROP_R - 0.07) * t;
+		const chord = 0.12 * Math.sin(Math.PI * (0.12 + 0.88 * t)) + 0.02;
+		const sweep = -0.06 * t * t;
+		lead.push([r, 0, sweep + chord * 0.6]);
+		trail.push([r, 0, sweep - chord * 0.4]);
 	}
-	const BLADE = [...loop(lead).slice(0, -1), ...loop(trail).slice(0, -1), [lead[8], trail[8]], [lead[0], trail[0]]];
-	const DISC = circle(PROP_R, 32, (u, v) => [u, 0, v]);
+	const BLADE = [...loop(lead).slice(0, -1), ...loop(trail).slice(0, -1), [lead[10], trail[10]], [lead[0], trail[0]]];
+	const DISC = circle(PROP_R, 36, (u, v) => [u, 0, v]);
 
 	const GRID = [];
 	for (let i = -3; i <= 3; i += 0.5) {
 		GRID.push([[i, 0, -3], [i, 0, 3]], [[-3, 0, i], [3, 0, i]]);
 	}
-	const GROUND_Y = -0.47;
+	const GROUND_Y = -0.6;
 
-	// Front arms swing back along the sides; rear arms swing forward and down under the body.
-	// yaw = direction of the arm, droop = tilt of the arm tip (folded -> open)
+	// Front arms (high, at the head) swing back along the sides so their legs end up at the rear;
+	// rear arms (low) swing forward along the belly. yaw = arm direction, droop = tip tilt (folded -> open).
 	const ARMS = [
-		{ shape: FRONT_ARM, len: FRONT_LEN, pivot: [0.48, 0.13, 0.42], yaw: [Math.PI / 2, -0.75], droop: [0, 0.06], dir: 1 },
-		{ shape: FRONT_ARM, len: FRONT_LEN, pivot: [-0.48, 0.13, 0.42], yaw: [-Math.PI * 1.5, -Math.PI + 0.75], droop: [0, 0.06], dir: -1 },
-		{ shape: REAR_ARM, len: REAR_LEN, pivot: [0.44, -0.12, -0.62], yaw: [-Math.PI / 2, 0.6], droop: [-0.22, 0.12], dir: -1 },
-		{ shape: REAR_ARM, len: REAR_LEN, pivot: [-0.44, -0.12, -0.62], yaw: [Math.PI * 1.5, Math.PI - 0.6], droop: [-0.22, 0.12], dir: 1 },
+		{ shape: FRONT_ARM, len: FRONT_LEN, pivot: [0.47, 0.05, 0.35], yaw: [Math.PI / 2, -0.38], droop: [0, -0.04], dir: 1 },
+		{ shape: FRONT_ARM, len: FRONT_LEN, pivot: [-0.47, 0.05, 0.35], yaw: [Math.PI / 2, Math.PI + 0.38], droop: [0, -0.04], dir: -1 },
+		{ shape: REAR_ARM, len: REAR_LEN, pivot: [0.42, -0.12, -0.55], yaw: [-Math.PI / 2, 0.53], droop: [-0.06, 0.05], dir: -1 },
+		{ shape: REAR_ARM, len: REAR_LEN, pivot: [-0.42, -0.12, -0.55], yaw: [Math.PI * 1.5, Math.PI - 0.53], droop: [-0.06, 0.05], dir: 1 },
 	];
 
 	// ---- Build the posed drone as world-space lines: [a, b, alpha]
@@ -164,7 +173,7 @@
 			put(arm.shape, armT);
 			// Blades rest folded back towards the hinge, flick open when the motors start,
 			// then spin and blur into a disc at speed
-			const hub = [arm.len, 0.18, 0];
+			const hub = [arm.len, HUB_Y, 0];
 			const spinYaw = s.propAngle * arm.dir;
 			for (const [rest, open] of [[Math.PI - 0.1, 0], [Math.PI + 0.1, Math.PI]]) {
 				const a = spinYaw + lerp(rest, open, s.bladeOpen);
@@ -242,7 +251,7 @@
 		render(buildScene(state), {
 			yaw: lerp(-2.6, -0.45, t),
 			pitch: lerp(0.75, 0.15, t),
-			dist: 6.5,
+			dist: 7,
 			lookY: lerp(-0.2, 0.1, t),
 		});
 

@@ -1,4 +1,4 @@
-// Wireframe drone for the gear section.
+// Wireframe DJI Air 3S for the gear section.
 // A tiny hand-rolled 3D line renderer (no library): the drone unfolds, spins up,
 // lifts off and tilts its camera as you scroll through .drone-scroll.
 (() => {
@@ -46,32 +46,102 @@
 	}
 	const shift = (shape, d) => shape.map(([a, b]) => [add(a, d), add(b, d)]);
 
-	const ARM_LEN = 1.1;
-	const PROP_LEN = 0.5;
-	const BODY = box(1.0, 0.32, 1.5, 0.8);
-	const BATTERY = shift(box(0.55, 0.12, 0.9), [0, 0.22, -0.1]);
-	const SENSORS = shift(box(0.5, 0.08, 0.02), [0, 0.02, 0.76]);
-	const ARM = shift(box(ARM_LEN, 0.07, 0.1), [ARM_LEN / 2, 0, 0]);
-	const MOTOR = shift(cylinder(0.11, 0.14), [ARM_LEN, 0.08, 0]);
-	const DISC = shift(cylinder(PROP_LEN, 0, 24), [ARM_LEN, 0.17, 0]);
-	const BLADE = [
-		[[-PROP_LEN, 0, 0], [0, 0, 0.05]], [[0, 0, 0.05], [PROP_LEN, 0, 0]],
-		[[PROP_LEN, 0, 0], [0, 0, -0.05]], [[0, 0, -0.05], [-PROP_LEN, 0, 0]],
+	const rotZ = (p, a) => {
+		const c = Math.cos(a), s = Math.sin(a);
+		return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]];
+	};
+	// Rounded-rectangle (superellipse) outline; `at(u, v)` places it in 3D
+	function ring(rx, ry, n, at, power = 2.6) {
+		const pts = [];
+		for (let i = 0; i < n; i++) {
+			const a = i / n * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+			pts.push(at(rx * Math.sign(c) * Math.abs(c) ** (2 / power), ry * Math.sign(s) * Math.abs(s) ** (2 / power)));
+		}
+		return pts;
+	}
+	const loop = pts => pts.map((p, i) => [p, pts[(i + 1) % pts.length]]);
+	// Lofted surface through a list of rings with the same point count
+	function loft(rings, every) {
+		const segs = rings.flatMap(loop);
+		for (let i = 0; i < rings[0].length; i += every) {
+			for (let k = 0; k < rings.length - 1; k++) segs.push([rings[k][i], rings[k + 1][i]]);
+		}
+		return segs;
+	}
+	const circle = (r, n, at) => loop(ring(r, r, n, at, 2));
+
+	// ---- DJI Air 3S
+	// Fuselage cross-sections: [z, half-width, half-height, centre y] (1 unit ≈ 10 cm)
+	const STATIONS = [
+		[-1.0, 0.28, 0.16, 0.06],
+		[-0.8, 0.40, 0.23, 0.05],
+		[-0.35, 0.47, 0.27, 0.04],
+		[0.2, 0.46, 0.27, 0.03],
+		[0.6, 0.40, 0.24, 0.0],
+		[0.85, 0.30, 0.19, -0.03],
+		[0.97, 0.18, 0.12, -0.05],
 	];
-	const GIMBAL = shift(box(0.32, 0.06, 0.2), [0, -0.21, 0.62]);
-	const CAMERA = [...box(0.26, 0.22, 0.24), ...shift(cylinder(0.07, 0.08, 12, 'z'), [0, 0, 0.16])];
+	const BODY = [
+		...loft(STATIONS.map(([z, w, h, y]) => ring(w, h, 24, (u, v) => [u, y + v, z])), 2),
+		// battery seam on top and the top fisheye sensors
+		...loop(ring(0.26, 0.5, 16, (u, v) => [u, 0.31, -0.45 + v], 4)),
+		...circle(0.05, 10, (u, v) => [0.16 + u, 0.3, 0.42 + v]),
+		...circle(0.05, 10, (u, v) => [-0.16 + u, 0.3, 0.42 + v]),
+		// forward stereo vision sensors and LiDAR window on the nose
+		...circle(0.045, 10, (u, v) => [0.1 + u, 0.03 + v, 0.975]),
+		...circle(0.045, 10, (u, v) => [-0.1 + u, 0.03 + v, 0.975]),
+		...loop(ring(0.06, 0.025, 10, (u, v) => [u, -0.07 + v, 0.97], 4)),
+	];
+
+	// Dual-camera gimbal: wide 1" main camera + medium tele, side by side
+	const GIMBAL_POS = [0, -0.32, 0.8];
+	const GIMBAL = [
+		...loft([-0.13, 0.13].map(z => ring(0.27, 0.13, 20, (u, v) => [u, v, z], 3)), 5),
+		...circle(0.085, 16, (u, v) => [-0.1 + u, v, 0.135]),
+		...circle(0.05, 12, (u, v) => [-0.1 + u, v, 0.15]),
+		...circle(0.06, 14, (u, v) => [0.12 + u, v, 0.135]),
+		...circle(0.03, 10, (u, v) => [0.12 + u, v, 0.15]),
+	];
+
+	// Tapered arm along +x, from (w0, h0) at the hinge to (w1, h1) at the motor
+	function beam(len, w0, h0, w1, h1) {
+		const a = ring(w0, h0, 8, (u, v) => [0, v, u], 4);
+		const b = ring(w1, h1, 8, (u, v) => [len, v, u], 4);
+		return [...loop(a), ...loop(b), ...a.map((p, i) => [p, b[i]])];
+	}
+	const motor = len => shift(cylinder(0.15, 0.14, 14), [len, 0.09, 0]);
+	const FRONT_LEN = 1.05, REAR_LEN = 1.2;
+	const FRONT_ARM = [
+		...beam(FRONT_LEN, 0.07, 0.05, 0.045, 0.035), ...motor(FRONT_LEN),
+		...shift(box(0.05, 0.22, 0.05), [FRONT_LEN - 0.05, -0.12, 0]), // landing leg
+	];
+	const REAR_ARM = [...beam(REAR_LEN, 0.08, 0.055, 0.045, 0.035), ...motor(REAR_LEN)];
+
+	// One curved propeller blade pointing along +x from the hub
+	const PROP_R = 0.85;
+	const lead = [], trail = [];
+	for (let i = 0; i <= 8; i++) {
+		const t = i / 8, r = 0.06 + (PROP_R - 0.06) * t;
+		const chord = 0.13 * Math.sin(Math.PI * (0.15 + 0.85 * t)) + 0.02;
+		lead.push([r, 0, chord * 0.6]);
+		trail.push([r, 0, -chord * 0.4]);
+	}
+	const BLADE = [...loop(lead).slice(0, -1), ...loop(trail).slice(0, -1), [lead[8], trail[8]], [lead[0], trail[0]]];
+	const DISC = circle(PROP_R, 32, (u, v) => [u, 0, v]);
+
 	const GRID = [];
 	for (let i = -3; i <= 3; i += 0.5) {
 		GRID.push([[i, 0, -3], [i, 0, 3]], [[-3, 0, i], [3, 0, i]]);
 	}
-	const GROUND_Y = -0.75;
+	const GROUND_Y = -0.47;
 
-	// Arm yaw angles (folded -> open). Front arms fold back along the body, rear arms fold forward.
+	// Front arms swing back along the sides; rear arms swing forward and down under the body.
+	// yaw = direction of the arm, droop = tilt of the arm tip (folded -> open)
 	const ARMS = [
-		{ pivot: [0.55, 0.05, 0.55], folded: Math.PI / 2, open: -Math.PI / 4, dir: 1 },
-		{ pivot: [-0.55, 0.05, 0.55], folded: -Math.PI * 1.5, open: -Math.PI * 0.75, dir: -1 },
-		{ pivot: [0.55, -0.08, -0.55], folded: -Math.PI / 2, open: Math.PI / 4, dir: -1 },
-		{ pivot: [-0.55, -0.08, -0.55], folded: Math.PI * 1.5, open: Math.PI * 0.75, dir: 1 },
+		{ shape: FRONT_ARM, len: FRONT_LEN, pivot: [0.48, 0.13, 0.42], yaw: [Math.PI / 2, -0.75], droop: [0, 0.06], dir: 1 },
+		{ shape: FRONT_ARM, len: FRONT_LEN, pivot: [-0.48, 0.13, 0.42], yaw: [-Math.PI * 1.5, -Math.PI + 0.75], droop: [0, 0.06], dir: -1 },
+		{ shape: REAR_ARM, len: REAR_LEN, pivot: [0.44, -0.12, -0.62], yaw: [-Math.PI / 2, 0.6], droop: [-0.22, 0.12], dir: -1 },
+		{ shape: REAR_ARM, len: REAR_LEN, pivot: [-0.44, -0.12, -0.62], yaw: [Math.PI * 1.5, Math.PI - 0.6], droop: [-0.22, 0.12], dir: 1 },
 	];
 
 	// ---- Build the posed drone as world-space lines: [a, b, alpha]
@@ -85,21 +155,22 @@
 		const lift = [0, s.lift, 0];
 		const T = p => add(p, lift);
 		put(BODY, T);
-		put(BATTERY, T);
-		put(SENSORS, T);
-		put(GIMBAL, T);
-		put(CAMERA, p => T(add(rotX(p, s.tilt), [0, -0.36, 0.68])));
+		put(GIMBAL, p => T(add(rotX(p, s.tilt), GIMBAL_POS)));
 
 		for (const arm of ARMS) {
-			const yaw = lerp(arm.folded, arm.open, s.unfold);
-			const armT = p => T(add(rotY(p, yaw), arm.pivot));
-			put(ARM, armT);
-			put(MOTOR, armT);
-			// Blades rest along the arm, spin around the motor and blur into a disc at speed
+			const yaw = lerp(arm.yaw[0], arm.yaw[1], s.unfold);
+			const droop = lerp(arm.droop[0], arm.droop[1], s.unfold);
+			const armT = p => T(add(rotY(rotZ(p, droop), yaw), arm.pivot));
+			put(arm.shape, armT);
+			// Blades rest folded back towards the hinge, flick open when the motors start,
+			// then spin and blur into a disc at speed
+			const hub = [arm.len, 0.18, 0];
 			const spinYaw = s.propAngle * arm.dir;
-			const blade = p => armT(add(rotY(p, spinYaw), [ARM_LEN, 0.17, 0]));
-			put(BLADE, blade, 1 - s.spin * 0.75);
-			if (s.spin > 0.01) put(DISC, armT, s.spin * 0.5);
+			for (const [rest, open] of [[Math.PI - 0.1, 0], [Math.PI + 0.1, Math.PI]]) {
+				const a = spinYaw + lerp(rest, open, s.bladeOpen);
+				put(BLADE, p => armT(add(rotY(p, a), hub)), 1 - s.spin * 0.75);
+			}
+			if (s.spin > 0.01) put(DISC, p => armT(add(p, hub)), s.spin * 0.5);
 		}
 		return lines;
 	}
@@ -161,8 +232,9 @@
 
 		const state = {
 			unfold: phase(p, 0.05, 0.35),
+			bladeOpen: phase(p, 0.33, 0.4),
 			spin,
-			lift: liftT * 0.5 + Math.sin(time / 600) * 0.03 * liftT,
+			lift: liftT * 0.6 + Math.sin(time / 600) * 0.03 * liftT,
 			tilt: -0.5 * phase(p, 0.7, 0.9),
 			propAngle,
 		};
@@ -170,7 +242,7 @@
 		render(buildScene(state), {
 			yaw: lerp(-2.6, -0.45, t),
 			pitch: lerp(0.75, 0.15, t),
-			dist: 6,
+			dist: 6.5,
 			lookY: lerp(-0.2, 0.1, t),
 		});
 
@@ -188,16 +260,16 @@
 
 	// Only animate while the section is on screen
 	let running = false;
-	function loop(time) {
+	function tick(time) {
 		if (!running) return;
 		frame(time, progress());
-		requestAnimationFrame(loop);
+		requestAnimationFrame(tick);
 	}
 	new IntersectionObserver(([entry]) => {
 		running = entry.isIntersecting;
 		if (running) {
 			lastTime = performance.now();
-			requestAnimationFrame(loop);
+			requestAnimationFrame(tick);
 		}
 	}).observe(scroller);
 })();

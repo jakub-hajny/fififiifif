@@ -223,6 +223,55 @@ section{width: 100%;}
 }
 .card p:not(.card-label){color: var(--muted);}
 
+/* GEAR: scroll-driven wireframe drone (drone.js) */
+.drone-scroll{
+	height: 300vh;
+	margin-bottom: clamp(2rem, 5vw, 3.5rem);
+}
+.drone-stage{
+	position: sticky;
+	top: 0;
+	height: 100vh;
+	height: 100svh;
+	display: grid;
+	grid-template-columns: 1fr 16rem;
+	align-items: center;
+	gap: 2rem;
+}
+#drone{
+	width: 100%;
+	height: 80svh;
+}
+.drone-hud{
+	display: flex;
+	flex-direction: column;
+	gap: 2rem;
+	font-family: var(--font-mono);
+	font-size: 0.8rem;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+}
+.drone-steps{
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+.drone-steps li{
+	color: var(--muted);
+	padding-left: 1rem;
+	border-left: 1px solid var(--line);
+	transition: color 0.3s ease, border-color 0.3s ease;
+}
+.drone-steps li.active{
+	color: var(--accent);
+	border-color: var(--accent);
+}
+.drone-readout{
+	color: var(--text);
+	font-variant-numeric: tabular-nums;
+}
+
 /* WORK */
 #vids{
 	display: grid;
@@ -376,7 +425,13 @@ footer{
 	.hero h1{animation: hero-title 2s cubic-bezier(0.2, 0, 0, 1) forwards;}
 	.rec-dot{animation: blink 1s steps(1) infinite;}
 }
-@media(prefers-reduced-motion: reduce){*{animation: none !important; transition: none !important; opacity: 1 !important;}}
+@media(prefers-reduced-motion: reduce){
+	*{animation: none !important; transition: none !important; opacity: 1 !important;}
+	/* Drone is drawn once, fully unfolded, without pinning */
+	.drone-scroll{height: auto;}
+	.drone-stage{position: static; height: auto;}
+	#drone{height: 60svh;}
+}
 
 .slide-up{animation: slide-up 0.5s cubic-bezier(0, 1, 1, 1) forwards; opacity: 0;}
 .slide-down{animation: slide-down 0.5s cubic-bezier(0, 1, 1, 1) forwards; opacity: 0;}
@@ -409,6 +464,14 @@ footer{
 		padding-bottom: 1rem;
 	}
 	#vids iframe{scroll-snap-align: start;}
+	.drone-stage{
+		grid-template-columns: 1fr;
+		align-content: center;
+		gap: 1rem;
+	}
+	#drone{height: 65svh;}
+	.drone-hud{gap: 1rem; font-size: 0.7rem;}
+	.drone-steps{flex-direction: row; flex-wrap: wrap; gap: 0.5rem 1rem;}
 }
 
 /* MOBILE */

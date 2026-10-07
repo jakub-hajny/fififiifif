@@ -14,7 +14,8 @@ const clamp01 = v => Math.min(1, Math.max(0, v));
 const ease = v => v * v * (3 - 2 * v);
 
 // DJI Air 3S (models/air3s.glb, unfolded pose, already in stage units). Hinge axes, pivots and
-// angles were measured by comparing the folded and unfolded scans of the same drone.
+// angles were measured by comparing the folded and unfolded scans of the same drone; motor axes
+// from the motor tops' rotation between the scans.
 // Front arms unfold first, then the rear arms flip down and back under the body.
 const airFront = s => ease(clamp01(s.unfold / 0.6));
 const airRear = s => ease(clamp01((s.unfold - 0.4) / 0.6));
@@ -33,18 +34,19 @@ const RIGS = {
 		lift: s => -0.17 * (1 - airFront(s)) * (1 - airRear(s)) + 1.05 * Math.sin(Math.PI * airRear(s)) + s.lift,
 		hinges: [
 			...airArm('FL', airFront, [0.3249, 0.0948, 0.1672], [0.1560, 0.9847, 0.0775], -1.9111,
-				{ centre: [1.5152, 0.1610, 0.6386], axis: [0.1522, 0.9884, 0.0017], dir: 1 },
+				{ centre: [1.5157, 0.1121, 0.6232], axis: [0.1247, 0.9920, 0.0187], dir: 1 },
 				[[[1.5661, 0.1536, 0.5568], [0.1461, 0.9893, 0.0068], -2.1291], [[1.4644, 0.1684, 0.7205], [0.1582, 0.9874, -0.0034], 1.1382]]),
 			...airArm('FR', airFront, [-0.3249, 0.0952, 0.1625], [-0.1560, 0.9847, 0.0775], 1.9111,
-				{ centre: [-1.5167, 0.1613, 0.6374], axis: [-0.1627, 0.9867, 0.0038], dir: -1 },
+				{ centre: [-1.5161, 0.1125, 0.6233], axis: [-0.1347, 0.9907, 0.0199], dir: -1 },
 				[[[-1.4651, 0.1692, 0.7178], [-0.1689, 0.9856, -0.0006], -1.1661], [[-1.5682, 0.1535, 0.5569], [-0.1564, 0.9877, 0.0082], 2.1169]]),
 			...airArm('RL', airRear, [0.5465, -0.0823, -0.7647], [0.9097, -0.0721, 0.4089], 3.0229,
-				{ centre: [1.2997, 0.0855, -1.6230], axis: [0.1207, 0.9924, 0.0236], dir: -1 },
+				{ centre: [1.2947, 0.0445, -1.6241], axis: [0.0985, 0.9950, 0.0173], dir: -1 },
 				[[[1.3619, 0.0757, -1.5590], [0.1260, 0.9918, 0.0207], 1.7104], [[1.2374, 0.0953, -1.6871], [0.1154, 0.9930, 0.0265], -1.5533]]),
 			...airArm('RR', airRear, [-0.5465, -0.0823, -0.7647], [0.9097, 0.0721, -0.4089], 3.0229,
-				{ centre: [-1.2992, 0.0874, -1.6225], axis: [-0.0922, 0.9954, 0.0251], dir: 1 },
+				{ centre: [-1.2947, 0.0448, -1.6240], axis: [-0.0985, 0.9950, 0.0172], dir: 1 },
 				[[[-1.2364, 0.0969, -1.6861], [-0.1002, 0.9947, 0.0212], 1.5184], [[-1.3621, 0.0778, -1.5589], [-0.0842, 0.9960, 0.0290], -1.7349]]),
-			{ name: 'gimbal', nodes: ['Camera'], pivot: [0, -0.1433, 0.6017], axis: [1, 0, 0], angle: s => s.tilt },
+			// Pitch axis through the gimbal's side arms; tilts down towards the ground
+			{ name: 'gimbal', nodes: ['Camera'], pivot: [0, -0.145, 0.656], axis: [1, 0, 0], angle: s => -0.6 * s.tilt },
 		],
 	},
 	'gear-camera': { ground: -1.25, hinges: [] },

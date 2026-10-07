@@ -46,7 +46,7 @@ const RIGS = {
 				{ centre: [-1.2947, 0.0448, -1.6240], axis: [-0.0985, 0.9950, 0.0172], dir: 1 },
 				[[[-1.2364, 0.0969, -1.6861], [-0.1002, 0.9947, 0.0212], 1.5184], [[-1.3621, 0.0778, -1.5589], [-0.0842, 0.9960, 0.0290], -1.7349]]),
 			// Pitch axis through the gimbal's side arms; tilts down towards the ground
-			{ name: 'gimbal', nodes: ['Camera'], pivot: [0, -0.145, 0.656], axis: [1, 0, 0], angle: s => -0.6 * s.tilt },
+			{ name: 'gimbal', nodes: ['Camera'], pivot: [0, -0.145, 0.656], axis: [1, 0, 0], angle: s => -0.4 * s.tilt },
 		],
 	},
 	'gear-camera': { ground: -1.25, hinges: [] },

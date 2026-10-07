@@ -6,12 +6,47 @@
 
 // Per-stage setup, in the stage units of gear3d.js (y up, front towards +z):
 // - transform: scale / rotation / position that bring the model file into those units
-// - ground: floor height; lift: follow state.lift (drone take-off)
+// - ground: floor height; lift: true follows state.lift (take-off), or a function of the pose
 // - hinges: parts rotated about `pivot` (or 'center' of the parts) around `axis` by angle(state);
 //   `parent` nests a hinge inside another one, `disc` adds a propeller blur disc of that radius
 // - screen: live-view overlay on the camera display (centre, size, outward normal, parent hinge)
+const clamp01 = v => Math.min(1, Math.max(0, v));
+const ease = v => v * v * (3 - 2 * v);
+
+// DJI Air 3S (models/air3s.glb, unfolded pose, already in stage units). Hinge axes, pivots and
+// angles were measured by comparing the folded and unfolded scans of the same drone.
+// Front arms unfold first, then the rear arms flip down and back under the body.
+const airFront = s => ease(clamp01(s.unfold / 0.6));
+const airRear = s => ease(clamp01((s.unfold - 0.4) / 0.6));
+const airArm = (id, unfold, pivot, axis, angle, motor, blades) => [
+	{ name: `arm-${id}`, nodes: [`Arm_${id}`, `Hub_${id}`, `Blade_${id}_0`, `Blade_${id}_1`], pivot, axis, angle: s => -angle * (1 - unfold(s)) },
+	{ name: `spin-${id}`, parent: `arm-${id}`, nodes: [`Hub_${id}`, `Blade_${id}_0`, `Blade_${id}_1`], pivot: motor.centre, axis: motor.axis, angle: s => s.propAngle * motor.dir, disc: 1.12 },
+	...blades.map(([bladePivot, bladeAxis, bladeAngle], n) => ({
+		name: `blade-${id}-${n}`, parent: `spin-${id}`, nodes: [`Blade_${id}_${n}`], pivot: bladePivot, axis: bladeAxis, angle: s => -bladeAngle * (1 - s.bladeOpen),
+	})),
+];
+
 const RIGS = {
-	'gear-drone': { ground: -0.6, lift: true, hinges: [] },
+	'gear-drone': {
+		ground: -0.6,
+		// Folded it rests on the rear motors; it is lifted while the rear arms swing under it, then stands on its legs
+		lift: s => -0.17 * (1 - airFront(s)) * (1 - airRear(s)) + 1.05 * Math.sin(Math.PI * airRear(s)) + s.lift,
+		hinges: [
+			...airArm('FL', airFront, [0.3249, 0.0948, 0.1672], [0.1560, 0.9847, 0.0775], -1.9111,
+				{ centre: [1.5152, 0.1610, 0.6386], axis: [0.1522, 0.9884, 0.0017], dir: 1 },
+				[[[1.5661, 0.1536, 0.5568], [0.1461, 0.9893, 0.0068], -2.1291], [[1.4644, 0.1684, 0.7205], [0.1582, 0.9874, -0.0034], 1.1382]]),
+			...airArm('FR', airFront, [-0.3249, 0.0952, 0.1625], [-0.1560, 0.9847, 0.0775], 1.9111,
+				{ centre: [-1.5167, 0.1613, 0.6374], axis: [-0.1627, 0.9867, 0.0038], dir: -1 },
+				[[[-1.4651, 0.1692, 0.7178], [-0.1689, 0.9856, -0.0006], -1.1661], [[-1.5682, 0.1535, 0.5569], [-0.1564, 0.9877, 0.0082], 2.1169]]),
+			...airArm('RL', airRear, [0.5465, -0.0823, -0.7647], [0.9097, -0.0721, 0.4089], 3.0229,
+				{ centre: [1.2997, 0.0855, -1.6230], axis: [0.1207, 0.9924, 0.0236], dir: -1 },
+				[[[1.3619, 0.0757, -1.5590], [0.1260, 0.9918, 0.0207], 1.7104], [[1.2374, 0.0953, -1.6871], [0.1154, 0.9930, 0.0265], -1.5533]]),
+			...airArm('RR', airRear, [-0.5465, -0.0823, -0.7647], [0.9097, 0.0721, -0.4089], 3.0229,
+				{ centre: [-1.2992, 0.0874, -1.6225], axis: [-0.0922, 0.9954, 0.0251], dir: 1 },
+				[[[-1.2364, 0.0969, -1.6861], [-0.1002, 0.9947, 0.0212], 1.5184], [[-1.3621, 0.0778, -1.5589], [-0.0842, 0.9960, 0.0290], -1.7349]]),
+			{ name: 'gimbal', nodes: ['Camera'], pivot: [0, -0.1433, 0.6017], axis: [1, 0, 0], angle: s => s.tilt },
+		],
+	},
 	'gear-camera': { ground: -1.25, hinges: [] },
 };
 
@@ -97,7 +132,7 @@ async function mount(root) {
 	const edges = meshes.map(mesh => {
 		mesh.castShadow = true;
 		for (const material of [].concat(mesh.material)) Object.assign(material, { clippingPlanes: [keepBelow], clipShadows: true });
-		const lines = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 30), edgeMaterial);
+		const lines = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 60), edgeMaterial);
 		mesh.add(lines);
 		return lines;
 	});
@@ -200,7 +235,7 @@ async function mount(root) {
 		if (!detail || !width || !height) return;
 		const { state, view, focal } = detail;
 
-		model.position.y = rig.lift ? state.lift ?? 0 : 0;
+		model.position.y = typeof rig.lift === 'function' ? rig.lift(state) : rig.lift ? state.lift ?? 0 : 0;
 		for (const hinge of Object.values(hinges)) {
 			hinge.pivot.quaternion.setFromAxisAngle(hinge.axis, hinge.spec.angle(state));
 			if (hinge.disc) hinge.disc.material.opacity = (state.spin ?? 0) * 0.18;
